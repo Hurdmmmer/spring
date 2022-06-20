@@ -255,6 +255,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		Object beanInstance;
 
 		// Eagerly check singleton cache for manually registered singletons.
+		// 获取单例对象,它不会创建对象
 		Object sharedInstance = getSingleton(beanName);
 		if (sharedInstance != null && args == null) {
 			if (logger.isTraceEnabled()) {
@@ -279,6 +280,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 
 			// Check if bean definition exists in this factory.
 			BeanFactory parentBeanFactory = getParentBeanFactory();
+			// 先从 父 BeanFactory（ParentBeanFactory） 中获取当前 beanDefinition对象
 			if (parentBeanFactory != null && !containsBeanDefinition(beanName)) {
 				// Not found -> check parent.
 				// &&&&xxx---->&xxx
@@ -310,6 +312,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				if (requiredType != null) {
 					beanCreation.tag("beanType", requiredType::toString);
 				}
+				// 获取 beanDefinition 对象
 				RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
 
 				// 检查BeanDefinition是不是Abstract的
@@ -317,6 +320,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 
 				// Guarantee initialization of beans that the current bean depends on.
 				String[] dependsOn = mbd.getDependsOn();
+				// 判断该 bean 是否使用了 dependOn 注解
 				if (dependsOn != null) {
 					// dependsOn表示当前beanName所依赖的，当前Bean创建之前dependsOn所依赖的Bean必须已经创建好了
 					for (String dep : dependsOn) {
@@ -368,6 +372,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					beanInstance = getObjectForBeanInstance(prototypeInstance, name, beanName, mbd);
 				}
 				else {
+					// 根据 scope 获取对象
 					String scopeName = mbd.getScope();
 					if (!StringUtils.hasLength(scopeName)) {
 						throw new IllegalStateException("No scope name defined for bean ´" + beanName + "'");
@@ -555,6 +560,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		// Check manually registered singletons.
 		Object beanInstance = getSingleton(beanName, false);
 		if (beanInstance != null && beanInstance.getClass() != NullBean.class) {
+			// 判断是否为 factoryBean 对象，如果是则获取factoryBean 对应的 class 对象
 			if (beanInstance instanceof FactoryBean) {
 				if (!isFactoryDereference) {
 					// 调用factoryBean.getObjectType()
@@ -607,7 +613,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			return parentBeanFactory.isTypeMatch(originalBeanName(name), typeToMatch);
 		}
 
-		// 单例池中没有name对应的Bean对象，就只能根据BeanDefinition来判断出类型了
+		// 单例池中没有name对应的Bean对象，就只能根据 BeanDefinition 来判断出类型了
 
 		// Retrieve corresponding bean definition.
 		RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
@@ -1163,6 +1169,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			return (beanInstance instanceof FactoryBean);
 		}
 		// No singleton instance found -> check bean definition.
+		// 如果当前BeanDefinitionMap中没有，就去获取它父BeanFactory去判断该BeanDefinition是否为 FactoryBean（继承 FactoryBean 接口）
 		if (!containsBeanDefinition(beanName) && getParentBeanFactory() instanceof ConfigurableBeanFactory) {
 			// No bean definition found in this factory -> delegate to parent.
 			return ((ConfigurableBeanFactory) getParentBeanFactory()).isFactoryBean(name);
@@ -1549,7 +1556,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			throws CannotLoadBeanClassException {
 
 		try {
-			// 如果beanClass被加载了
+			// 如果beanClass被加载了， 判断当前 beanClass 属性是否为 class 类型
 			if (mbd.hasBeanClass()) {
 				return mbd.getBeanClass();
 			}
@@ -1560,6 +1567,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 						() -> doResolveBeanClass(mbd, typesToMatch), getAccessControlContext());
 			}
 			else {
+				// 加载 class
 				return doResolveBeanClass(mbd, typesToMatch);
 			}
 		}
@@ -1578,7 +1586,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	@Nullable
 	private Class<?> doResolveBeanClass(RootBeanDefinition mbd, Class<?>... typesToMatch)
 			throws ClassNotFoundException {
-
+		// 获取类加载器
 		ClassLoader beanClassLoader = getBeanClassLoader();
 		ClassLoader dynamicLoader = beanClassLoader;
 		boolean freshResolve = false;
@@ -1895,11 +1903,11 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		// Now we have the bean instance, which may be a normal bean or a FactoryBean.
 		// If it's a FactoryBean, we use it to create a bean instance, unless the
 		// caller actually wants a reference to the factory.
-		// 单例池中的对象不是FactoryBean，则直接返回
+		// 单例池中的对象不是 FactoryBean，则直接返回
 		if (!(beanInstance instanceof FactoryBean)) {
 			return beanInstance;
 		}
-
+		// 下面代码执行 FactoryBean.getObject方法获取Bean
 		Object object = null;
 		if (mbd != null) {
 			mbd.isFactoryBean = true;
@@ -1917,6 +1925,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 			// synthetic为true，表示这个Bean不是正常的一个Bean，可能只是起到辅助作用的，所以这种Bean就不用去执行PostProcessor了
 			boolean synthetic = (mbd != null && mbd.isSynthetic());
+			// 执行 getObject 方法
 			object = getObjectFromFactoryBean(factory, beanName, !synthetic);
 		}
 		return object;

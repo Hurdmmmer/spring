@@ -551,6 +551,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 		if (resolvedBeanNames != null) {
 			return resolvedBeanNames;
 		}
+		// 从 BeanDefinition 中获取Bean的名字
 		resolvedBeanNames = doGetBeanNamesForType(ResolvableType.forRawClass(type), includeNonSingletons, true);
 		if (ClassUtils.isCacheSafe(type, getBeanClassLoader())) {
 			cache.put(type, resolvedBeanNames);
@@ -817,6 +818,8 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 	 * @param resolver the AutowireCandidateResolver to use for the actual resolution algorithm
 	 * @return whether the bean should be considered as autowire candidate
 	 */
+	// 确定指定的 bean 是否有资格作为自动装配候选者，以注入到声明匹配类型的依赖项的其他 bean 中。
+	// 此方法也检查祖先工厂
 	protected boolean isAutowireCandidate(
 			String beanName, DependencyDescriptor descriptor, AutowireCandidateResolver resolver)
 			throws NoSuchBeanDefinitionException {
@@ -867,7 +870,9 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 				this.mergedBeanDefinitionHolders.computeIfAbsent(beanName,
 						key -> new BeanDefinitionHolder(mbd, beanName, getAliases(bdName))) :
 				new BeanDefinitionHolder(mbd, beanName, getAliases(bdName)));
-
+		// 该方法是一个责任链的方式区进行判断候选bean是否满足条件，
+		// 使用了 GenericTypeAwareAutowireCandidateResolver、QualifierAnnotationAutowireCandidateResolver
+		// 去进行处理
 		return resolver.isAutowireCandidate(holder, descriptor);
 	}
 
@@ -937,10 +942,12 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 
 		// Trigger initialization of all non-lazy singleton beans...
 		for (String beanName : beanNames) {
-			// 获取合并后的BeanDefinition
+			// 获取合并后的 BeanDefinition， 判断当前的 BeanDefinition 是否需要合并（是否指定了 parent 属性），生成一个新的合并后的 RootBeanDefinition
 			RootBeanDefinition bd = getMergedLocalBeanDefinition(beanName);
-
+		    // bd.isAbstract() 判断当前 beanDefinition 是否为抽象的，与Java类是否为抽象不同
+			// spring 有父子 beanDefinition 的概念， 子类会继承所有的父亲的属性，只有在使用 xml 配置 bean 的时才有这些属性
 			if (!bd.isAbstract() && bd.isSingleton() && !bd.isLazyInit()) {
+				// 判断当前的 bean 是否为 Factory Bean
 				if (isFactoryBean(beanName)) {
 					// 获取FactoryBean对象
 					Object bean = getBean(FACTORY_BEAN_PREFIX + beanName);
@@ -1308,7 +1315,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 	@Nullable
 	public Object resolveDependency(DependencyDescriptor descriptor, @Nullable String requestingBeanName,
 			@Nullable Set<String> autowiredBeanNames, @Nullable TypeConverter typeConverter) throws BeansException {
-		// 用来获取方法入参名字的
+		// 用来获取方法入参名字的，使用 1.8 提供的API获取， 或者基于本地变量表的方法获取
 		descriptor.initParameterNameDiscovery(getParameterNameDiscoverer());
 
 		// 所需要的类型是Optional
@@ -1348,9 +1355,9 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			if (shortcut != null) {
 				return shortcut;
 			}
-
+			// 获取依赖的 class
 			Class<?> type = descriptor.getDependencyType();
-			// 获取@Value所指定的值
+			// 获取 @Value 所指定的值， 判断是否使用 @Value 注解
 			Object value = getAutowireCandidateResolver().getSuggestedValue(descriptor);
 			if (value != null) {
 				if (value instanceof String) {
@@ -1380,10 +1387,11 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 				return multipleBeans;
 			}
 
-			// 找到所有Bean，key是beanName, value有可能是bean对象，有可能是beanClass
+			// 找到所有Bean，key是beanName, value有可能是bean对象，有可能是beanClass,
+			// 找到所有 autowire 注入的候选Bean Map
 			Map<String, Object> matchingBeans = findAutowireCandidates(beanName, type, descriptor);
 			if (matchingBeans.isEmpty()) {
-				// required为true，抛异常
+				// required 为 true，抛异常
 				if (isRequired(descriptor)) {
 					raiseNoMatchingBeanFound(type, descriptor.getResolvableType(), descriptor);
 				}
@@ -1597,7 +1605,8 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 	protected Map<String, Object> findAutowireCandidates(
 			@Nullable String beanName, Class<?> requiredType, DependencyDescriptor descriptor) {
 
-		// 从BeanFactory中找出和requiredType所匹配的beanName，仅仅是beanName，这些bean不一定经过了实例化，只有到最终确定某个Bean了，如果这个Bean还没有实例化才会真正进行实例化
+		// 从BeanFactory中找出和requiredType所匹配的beanName，仅仅是beanName，
+		// 这些bean不一定经过了实例化，只有到最终确定某个Bean了，如果这个Bean还没有实例化才会真正进行实例化
 		String[] candidateNames = BeanFactoryUtils.beanNamesForTypeIncludingAncestors(
 				this, requiredType, true, descriptor.isEager());
 		Map<String, Object> result = CollectionUtils.newLinkedHashMap(candidateNames.length);
@@ -1616,7 +1625,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			}
 		}
 
-
+		// 遍历匹配到的候选bean名称
 		for (String candidate : candidateNames) {
 			// 如果不是自己，则判断该candidate到底能不能用来进行自动注入
 			if (!isSelfReference(beanName, candidate) && isAutowireCandidate(candidate, descriptor)) {

@@ -189,6 +189,8 @@ public abstract class ClassUtils {
 		ClassLoader cl = null;
 
 		// 优先获取线程中的类加载器
+		// 如该工程为 tomcat 工程，那么tomcat启动的时候会使用tomcat自定义的类加载器
+		// (tomcat 启动是会自动设置到当前的线程中)
 		try {
 			cl = Thread.currentThread().getContextClassLoader();
 		}
@@ -202,7 +204,7 @@ public abstract class ClassUtils {
 			cl = ClassUtils.class.getClassLoader();
 			if (cl == null) {
 				// getClassLoader() returning null indicates the bootstrap ClassLoader
-				// 加入ClassUtils是被Bootstrap类加载器加载的，则获取系统类加载器
+				// 加入 ClassUtils 是被 Bootstrap 类加载器加载的，则获取系统类加载器
 				try {
 					cl = ClassLoader.getSystemClassLoader();
 				}
